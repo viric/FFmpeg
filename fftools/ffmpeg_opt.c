@@ -789,6 +789,7 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
         AVStream *st = ic->streams[i];
         AVCodecParameters *par = st->codecpar;
         InputStream *ist = av_mallocz(sizeof(*ist));
+        char *decode_formats = NULL;
         char *framerate = NULL, *hwaccel_device = NULL;
         const char *hwaccel = NULL;
         char *hwaccel_output_format = NULL;
@@ -882,6 +883,49 @@ static void add_input_streams(OptionsContext *o, AVFormatContext *ic)
 
             ist->top_field_first = -1;
             MATCH_PER_STREAM_OPT(top_field_first, i, ist->top_field_first, ic, st);
+
+            MATCH_PER_STREAM_OPT(decode_formats, str, decode_formats, ic, st);
+            if (decode_formats) {
+                const char *p, *q;
+                int i, nb_formats;
+                char tmp[32];
+
+                nb_formats = 0;
+                for (p = decode_formats; p; p = strchr(p + 1, ','))
+                    ++nb_formats;
+
+                ist->decode_formats =
+                    av_malloc_array(nb_formats + 1, sizeof(*ist->decode_formats));
+                if (!ist->decode_formats)
+                    exit_program(1);
+
+                p = decode_formats;
+                for (i = 0; i < nb_formats; i++) {
+                    q = strchr(p, ',');
+                    if (!q) {
+                        ist->decode_formats[i] = av_get_pix_fmt(p);
+                        if (ist->decode_formats[i] == AV_PIX_FMT_NONE)
+                            break;
+                        continue;
+                    }
+                    if (q - p > sizeof(tmp) - 1)
+                        break;
+                    memcpy(tmp, p, q - p);
+                    tmp[q - p] = 0;
+                    ist->decode_formats[i] = av_get_pix_fmt(tmp);
+                    if (ist->decode_formats[i] == AV_PIX_FMT_NONE)
+                        break;
+                    p = q + 1;
+                }
+                if (i < nb_formats) {
+                    av_log(NULL, AV_LOG_FATAL,
+                           "Unrecognised decode format: %s.\n", p);
+                    exit_program(1);
+                }
+                ist->decode_formats[nb_formats] = AV_PIX_FMT_NONE;
+            } else {
+                ist->decode_formats = NULL;
+            }
 
             MATCH_PER_STREAM_OPT(hwaccels, str, hwaccel, ic, st);
             MATCH_PER_STREAM_OPT(hwaccel_output_formats, str,
@@ -3690,6 +3734,9 @@ const OptionDef options[] = {
         "audio bitrate (please use -b:a)", "bitrate" },
     { "b",            OPT_VIDEO | HAS_ARG | OPT_PERFILE | OPT_OUTPUT,            { .func_arg = opt_bitrate },
         "video bitrate (please use -b:v)", "bitrate" },
+    { "decode_format",  OPT_VIDEO | OPT_STRING | HAS_ARG | OPT_EXPERT |
+                        OPT_SPEC | OPT_INPUT,                                    { .off = OFFSET(decode_formats) },
+        "set output format(s) to be used by decoder, fail if none of these formats are available", "format" },
     { "hwaccel",          OPT_VIDEO | OPT_STRING | HAS_ARG | OPT_EXPERT |
                           OPT_SPEC | OPT_INPUT,                                  { .off = OFFSET(hwaccels) },
         "use HW accelerated decoding", "hwaccel name" },

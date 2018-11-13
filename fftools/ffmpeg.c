@@ -635,6 +635,7 @@ static void ffmpeg_cleanup(int ret)
         avsubtitle_free(&ist->prev_sub.subtitle);
         av_frame_free(&ist->sub2video.frame);
         av_freep(&ist->filters);
+        av_freep(&ist->decode_formats);
         av_freep(&ist->hwaccel_device);
         av_freep(&ist->dts_buffer);
 
@@ -2851,6 +2852,15 @@ static enum AVPixelFormat get_format(AVCodecContext *s, const enum AVPixelFormat
         const AVPixFmtDescriptor *desc = av_pix_fmt_desc_get(*p);
         const AVCodecHWConfig  *config = NULL;
         int i;
+
+        if (ist->decode_formats) {
+            for (i = 0; ist->decode_formats[i] != AV_PIX_FMT_NONE; i++) {
+                if (ist->decode_formats[i] == *p)
+                    break;
+            }
+            if (ist->decode_formats[i] != *p)
+                continue;
+        }
 
         if (!(desc->flags & AV_PIX_FMT_FLAG_HWACCEL))
             break;

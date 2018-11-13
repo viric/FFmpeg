@@ -971,6 +971,19 @@ would be more efficient.
 When doing stream copy, copy also non-key frames found at the
 beginning.
 
+@item -decode_format[:@var{stream_specifier}] @var{pixfmt}[,@var{pixfmt}...] (@emph{input,per-stream})
+Set the possible output formats to be used by the decoder for this stream.
+If the decoder does not natively support any format in the given list for
+the input stream then decoding will fail rather than continuing with a
+different format.
+
+In general this should not be set - the decoder will select an output
+format based on the input stream parameters and available components, and
+that will be automatically converted to whatever the output requires.  It
+may be useful to force a hardware decoder supporting output in multiple
+different memory types to pick a desired one, or to ensure that a hardware
+decoder is used when software fallback is also available.
+
 @item -init_hw_device @var{type}[=@var{name}][:@var{device}[,@var{key=value}...]]
 Initialise a new hardware device of type @var{type} called @var{name}, using the
 given device parameters.

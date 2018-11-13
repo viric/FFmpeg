@@ -126,6 +126,8 @@ typedef struct OptionsContext {
     int        nb_ts_scale;
     SpecifierOpt *dump_attachment;
     int        nb_dump_attachment;
+    SpecifierOpt *decode_formats;
+    int        nb_decode_formats;
     SpecifierOpt *hwaccels;
     int        nb_hwaccels;
     SpecifierOpt *hwaccel_devices;
@@ -338,6 +340,8 @@ typedef struct InputStream {
     AVRational framerate;               /* framerate forced with -r */
     int top_field_first;
     int guess_layout_max;
+
+    enum AVPixelFormat *decode_formats;
 
     int autorotate;
 
