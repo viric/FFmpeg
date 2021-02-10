@@ -437,6 +437,7 @@ static const AVCodecDefault v4l2_m2m_defaults[] = {
         .wrapper_name   = "v4l2m2m", \
     }
 
+M2MENC(mjpeg,"MJPEG", options,       AV_CODEC_ID_MJPEG);
 M2MENC(mpeg4,"MPEG4", mpeg4_options, AV_CODEC_ID_MPEG4);
 M2MENC(h263, "H.263", options,       AV_CODEC_ID_H263);
 M2MENC(h264, "H.264", options,       AV_CODEC_ID_H264);

@@ -254,6 +254,7 @@ static const AVOption options[] = {
 
 M2MDEC(h264,  "H.264", AV_CODEC_ID_H264,       "h264_mp4toannexb");
 M2MDEC(hevc,  "HEVC",  AV_CODEC_ID_HEVC,       "hevc_mp4toannexb");
+M2MDEC(mjpeg, "MJPEG", AV_CODEC_ID_MJPEG,      NULL);
 M2MDEC(mpeg1, "MPEG1", AV_CODEC_ID_MPEG1VIDEO, NULL);
 M2MDEC(mpeg2, "MPEG2", AV_CODEC_ID_MPEG2VIDEO, NULL);
 M2MDEC(mpeg4, "MPEG4", AV_CODEC_ID_MPEG4,      NULL);
