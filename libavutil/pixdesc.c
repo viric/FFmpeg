@@ -2091,7 +2091,11 @@ static const AVPixFmtDescriptor av_pix_fmt_descriptors[AV_PIX_FMT_NB] = {
     },
     [AV_PIX_FMT_MMAL] = {
         .name = "mmal",
-        .flags = AV_PIX_FMT_FLAG_HWACCEL,
+        //.flags = AV_PIX_FMT_FLAG_HWACCEL,
+    },
+    [AV_PIX_FMT_MMAL_YUV420P] = {
+        .name = "mmal_yuv420p",
+        //.flags = AV_PIX_FMT_FLAG_HWACCEL,
     },
     [AV_PIX_FMT_CUDA] = {
         .name = "cuda",

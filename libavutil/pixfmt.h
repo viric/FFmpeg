@@ -225,6 +225,7 @@ enum AVPixelFormat {
      * MMAL_BUFFER_HEADER_T structure.
      */
     AV_PIX_FMT_MMAL,
+    AV_PIX_FMT_MMAL_YUV420P,
 
     AV_PIX_FMT_D3D11VA_VLD,  ///< HW decoding through Direct3D11 via old API, Picture.data[3] contains a ID3D11VideoDecoderOutputView pointer
 

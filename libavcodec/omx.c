@@ -28,6 +28,8 @@
 #include <dlfcn.h>
 #include <OMX_Core.h>
 #include <OMX_Component.h>
+#include <interface/mmal/mmal.h>
+#include <interface/mmal/util/mmal_il.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -448,8 +450,8 @@ static av_cold int omx_component_init(AVCodecContext *avctx, const char *role)
             break;
         if (video_port_format.eColorFormat == OMX_COLOR_FormatYUV420Planar ||
             video_port_format.eColorFormat == OMX_COLOR_FormatYUV420PackedPlanar) {
-            s->color_format = video_port_format.eColorFormat;
-            break;
+              s->color_format = video_port_format.eColorFormat;
+              break;
         }
     }
     if (s->color_format == 0) {
@@ -744,9 +746,25 @@ static int omx_encode_frame(AVCodecContext *avctx, AVPacket *pkt,
         buffer = get_buffer(&s->input_mutex, &s->input_cond,
                             &s->num_free_in_buffers, s->free_in_buffers, 1);
 
-        buffer->nFilledLen = av_image_fill_arrays(dst, linesize, buffer->pBuffer, avctx->pix_fmt, s->stride, s->plane_size, 1);
+        if (avctx->pix_fmt != AV_PIX_FMT_MMAL_YUV420P) {
+            buffer->nFilledLen = av_image_fill_arrays(dst, linesize, buffer->pBuffer, avctx->pix_fmt, s->stride, s->plane_size, 1);
+        }
 
-        if (s->input_zerocopy) {
+        if (avctx->pix_fmt == AV_PIX_FMT_MMAL_YUV420P) {
+            AVFrame *local = av_frame_clone(frame);
+            if (!local) {
+                // Return the buffer to the queue so it's not lost
+                append_buffer(&s->input_mutex, &s->input_cond, &s->num_free_in_buffers, s->free_in_buffers, buffer);
+                return AVERROR(ENOMEM);
+            }
+
+            mmalil_buffer_header_to_omx(buffer,
+                    (MMAL_BUFFER_HEADER_T *) local->data[3]);
+
+            buffer->pAppPrivate = local;
+            buffer->pOutputPortPrivate = NULL;
+            need_copy = 0;
+        } else if (s->input_zerocopy) {
             uint8_t *src[4] = { NULL };
             int src_linesize[4];
             av_image_fill_arrays(src, src_linesize, frame->data[0], avctx->pix_fmt, s->stride, s->plane_size, 1);
@@ -942,7 +960,7 @@ static const AVOption options[] = {
 };
 
 static const enum AVPixelFormat omx_encoder_pix_fmts[] = {
-    AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
+    AV_PIX_FMT_MMAL_YUV420P, AV_PIX_FMT_YUV420P, AV_PIX_FMT_NONE
 };
 
 static const AVClass omx_mpeg4enc_class = {

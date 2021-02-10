@@ -119,8 +119,8 @@ static void ffmmal_release_frame(void *opaque, uint8_t *data)
 
 // Setup frame with a new reference to buffer. The buffer must have been
 // allocated from the given pool.
-static int ffmmal_set_ref(AVFrame *frame, FFPoolRef *pool,
-                          MMAL_BUFFER_HEADER_T *buffer)
+static int ffmmal_set_ref(AVFrame *frame, enum AVPixelFormat pixfmt,
+		FFPoolRef *pool, MMAL_BUFFER_HEADER_T *buffer)
 {
     FFBufferRef *ref = av_mallocz(sizeof(*ref));
     if (!ref)
@@ -140,7 +140,7 @@ static int ffmmal_set_ref(AVFrame *frame, FFPoolRef *pool,
     atomic_fetch_add_explicit(&ref->pool->refcount, 1, memory_order_relaxed);
     mmal_buffer_header_acquire(buffer);
 
-    frame->format = AV_PIX_FMT_MMAL;
+    frame->format = pixfmt;
     frame->data[3] = (uint8_t *)ref->buffer;
     return 0;
 }
@@ -633,14 +633,16 @@ static int ffmal_copy_frame(AVCodecContext *avctx,  AVFrame *frame,
     frame->interlaced_frame = ctx->interlaced_frame;
     frame->top_field_first = ctx->top_field_first;
 
-    if (avctx->pix_fmt == AV_PIX_FMT_MMAL) {
+    if (avctx->pix_fmt == AV_PIX_FMT_MMAL ||
+			avctx->pix_fmt == AV_PIX_FMT_MMAL_YUV420P) {
         if (!ctx->pool_out)
             return AVERROR_UNKNOWN; // format change code failed with OOM previously
 
         if ((ret = ff_decode_frame_props(avctx, frame)) < 0)
             goto done;
 
-        if ((ret = ffmmal_set_ref(frame, ctx->pool_out, buffer)) < 0)
+        if ((ret = ffmmal_set_ref(frame, avctx->pix_fmt,
+						ctx->pool_out, buffer)) < 0)
             goto done;
     } else {
         int w = FFALIGN(avctx->width, 32);
@@ -850,7 +852,8 @@ static const AVOption options[]={
         .priv_class     = &ffmmal_##NAME##_dec_class, \
         .capabilities   = AV_CODEC_CAP_DELAY | AV_CODEC_CAP_HARDWARE, \
         .caps_internal  = FF_CODEC_CAP_SETS_PKT_DTS, \
-        .pix_fmts       = (const enum AVPixelFormat[]) { AV_PIX_FMT_MMAL, \
+        .pix_fmts       = (const enum AVPixelFormat[]) { \
+                                                         AV_PIX_FMT_MMAL_YUV420P, \
                                                          AV_PIX_FMT_YUV420P, \
                                                          AV_PIX_FMT_NONE}, \
         .hw_configs     = mmal_hw_configs, \
