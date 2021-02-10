@@ -119,10 +119,11 @@ static void ffmmal_release_frame(void *opaque, uint8_t *data)
 
 // Setup frame with a new reference to buffer. The buffer must have been
 // allocated from the given pool.
-static int ffmmal_set_ref(AVFrame *frame, FFPoolRef *pool,
-                          MMAL_BUFFER_HEADER_T *buffer)
+static int ffmmal_set_ref(AVCodecContext *avctx, AVFrame *frame,
+        FFPoolRef *pool, MMAL_BUFFER_HEADER_T *buffer)
 {
     FFBufferRef *ref = av_mallocz(sizeof(*ref));
+
     if (!ref)
         return AVERROR(ENOMEM);
 
@@ -140,8 +141,19 @@ static int ffmmal_set_ref(AVFrame *frame, FFPoolRef *pool,
     atomic_fetch_add_explicit(&ref->pool->refcount, 1, memory_order_relaxed);
     mmal_buffer_header_acquire(buffer);
 
-    frame->format = AV_PIX_FMT_MMAL;
-    frame->data[3] = (uint8_t *)ref->buffer;
+    frame->format = avctx->pix_fmt;
+
+    if (avctx->pix_fmt == AV_PIX_FMT_YUV420P) {
+        int w = FFALIGN(avctx->width, 32);
+        int h = FFALIGN(avctx->height, 16);
+
+        av_image_fill_arrays(frame->data, frame->linesize,
+                buffer->data + buffer->type->video.offset[0],
+                avctx->pix_fmt, w, h, 1);
+    } else {
+        frame->data[3] = (uint8_t *)ref->buffer;
+    }
+
     return 0;
 }
 
@@ -633,30 +645,14 @@ static int ffmal_copy_frame(AVCodecContext *avctx,  AVFrame *frame,
     frame->interlaced_frame = ctx->interlaced_frame;
     frame->top_field_first = ctx->top_field_first;
 
-    if (avctx->pix_fmt == AV_PIX_FMT_MMAL) {
-        if (!ctx->pool_out)
-            return AVERROR_UNKNOWN; // format change code failed with OOM previously
+    if (!ctx->pool_out)
+        return AVERROR_UNKNOWN; // format change code failed with OOM previously
 
-        if ((ret = ff_decode_frame_props(avctx, frame)) < 0)
-            goto done;
+    if ((ret = ff_decode_frame_props(avctx, frame)) < 0)
+        goto done;
 
-        if ((ret = ffmmal_set_ref(frame, ctx->pool_out, buffer)) < 0)
-            goto done;
-    } else {
-        int w = FFALIGN(avctx->width, 32);
-        int h = FFALIGN(avctx->height, 16);
-        uint8_t *src[4];
-        int linesize[4];
-
-        if ((ret = ff_get_buffer(avctx, frame, 0)) < 0)
-            goto done;
-
-        av_image_fill_arrays(src, linesize,
-                             buffer->data + buffer->type->video.offset[0],
-                             avctx->pix_fmt, w, h, 1);
-        av_image_copy(frame->data, frame->linesize, src, linesize,
-                      avctx->pix_fmt, avctx->width, avctx->height);
-    }
+    if ((ret = ffmmal_set_ref(avctx, frame, ctx->pool_out, buffer)) < 0)
+        goto done;
 
     frame->pts = buffer->pts == MMAL_TIME_UNKNOWN ? AV_NOPTS_VALUE : buffer->pts;
 #if FF_API_PKT_PTS
